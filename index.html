@@ -1,0 +1,1685 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GastroFlow - Sistema de Pedidos</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Fonte Google -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .receipt-pattern {
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 10px 10px;
+        }
+
+        /* Tabs Styles */
+        .tab-btn.active {
+            border-bottom: 2px solid #ea580c;
+            color: #ea580c;
+            font-weight: 600;
+        }
+
+        /* Esconder barra de rolagem em categorias mobile mas manter scroll */
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#ea580c', // Orange-600
+                        secondary: '#1e293b', // Slate-800
+                        accent: '#f59e0b', // Amber-500
+                    },
+                    screens: {
+                        'xs': '475px',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen overflow-hidden flex flex-col">
+
+    <!-- Container Principal da Aplicação -->
+    <div id="app" class="flex-1 flex flex-col h-full overflow-hidden relative">
+        <!-- O conteúdo será injetado aqui via JavaScript -->
+    </div>
+
+    <!-- Templates e Lógica JS -->
+    <script>
+        // ==========================================
+        // 1. MOCK DATA & CONFIGURAÇÃO INICIAL
+        // ==========================================
+        
+        const DEFAULT_DATA = {
+            users: [
+                { id: 1, name: 'Ana Silva', role: 'atendente', pin: '1234' },
+                { id: 2, name: 'Carlos Souza', role: 'atendente', pin: '0000' },
+                { id: 3, name: 'Chef Mario', role: 'cozinha', pin: '1111' },
+                { id: 4, name: 'Administrador', role: 'admin', pin: '9999' }
+            ],
+            paymentConfig: {
+                pixKey: 'chave-pix-padrao@gastroflow.com.br',
+                gatewayProvider: 'mercadopago', 
+                apiKeyPublic: '',
+                apiKeySecret: '',
+                pixApiToken: '',
+                usdt_bep20: '0x123...BEP20...WALLET',
+                usdt_poly: '0x456...POLYGON...WALLET',
+                btc: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
+                eth: '0x789...ETH...WALLET'
+            },
+            categories: [
+                { id: 'cat1', name: 'Hambúrgueres', icon: 'fa-burger' },
+                { id: 'cat2', name: 'Bebidas', icon: 'fa-glass-water' },
+                { id: 'cat3', name: 'Combos', icon: 'fa-box-open' },
+                { id: 'cat5', name: 'Salgados', icon: 'fa-cookie-bite' },
+                { id: 'cat4', name: 'Sobremesas', icon: 'fa-ice-cream' }
+            ],
+            products: [
+                { id: 101, categoryId: 'cat1', name: 'X-Bacon Supremo', price: 28.90, description: 'Pão brioche, 2x carne 150g, muito bacon e cheddar.', image: 'https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?w=500&auto=format&fit=crop&q=60' },
+                { id: 102, categoryId: 'cat1', name: 'Chicken Crispy', price: 24.50, description: 'Frango empanado crocante, alface, maionese verde.', image: 'https://images.unsplash.com/photo-1615557960916-5f4791effe9d?w=500&auto=format&fit=crop&q=60' },
+                { id: 103, categoryId: 'cat2', name: 'Coca-Cola Lata', price: 6.00, description: '350ml gelada.', image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500&auto=format&fit=crop&q=60' },
+                { id: 104, categoryId: 'cat2', name: 'Suco Natural', price: 9.00, description: 'Laranja ou Limão 500ml.', image: 'https://images.unsplash.com/photo-1613478223719-2ab802602423?w=500&auto=format&fit=crop&q=60' },
+                { id: 105, categoryId: 'cat3', name: 'Combo Casal', price: 55.90, description: '2 Burgers + 2 Batatas P + 1 Refri 1L.', image: 'https://images.unsplash.com/photo-1551782450-a2132b4ba21d?w=500&auto=format&fit=crop&q=60' },
+                { id: 106, categoryId: 'cat4', name: 'Petit Gâteau', price: 18.90, description: 'Bolo de chocolate quente com recheio cremoso e sorvete de creme.', image: 'https://images.unsplash.com/photo-1624353365286-3f8d62daad51?w=500&auto=format&fit=crop&q=60' },
+                { id: 107, categoryId: 'cat5', name: 'Pastel de Carne', price: 8.90, description: 'Pastel de feira frito na hora, recheio suculento de carne.', image: 'https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=500&auto=format&fit=crop&q=60' }
+            ],
+            orders: []
+        };
+
+        // ==========================================
+        // 2. GESTÃO DE ESTADO E STORE
+        // ==========================================
+
+        class Store {
+            constructor() {
+                this.loadData();
+                this.cart = [];
+                this.currentUser = null;
+                this.currentView = 'login';
+                // Estado para controle da UI Responsiva
+                this.isMobileCartOpen = false;
+            }
+
+            loadData() {
+                const stored = localStorage.getItem('gastroflow_db_v3_7'); // Versão atualizada para analytics
+                if (stored) {
+                    this.data = JSON.parse(stored);
+                    if(!this.data.paymentConfig) this.data.paymentConfig = DEFAULT_DATA.paymentConfig;
+                } else {
+                    this.data = DEFAULT_DATA;
+                    this.saveData();
+                }
+            }
+
+            saveData() {
+                localStorage.setItem('gastroflow_db_v3_7', JSON.stringify(this.data));
+            }
+
+            login(userId, pin) {
+                const user = this.data.users.find(u => u.id == userId && u.pin === pin);
+                if (user) {
+                    this.currentUser = user;
+                    if (user.role === 'cozinha') this.currentView = 'kitchen';
+                    else if (user.role === 'admin') this.currentView = 'admin';
+                    else this.currentView = 'pos';
+                    return true;
+                }
+                return false;
+            }
+
+            logout() {
+                this.currentUser = null;
+                this.currentView = 'login';
+                this.cart = [];
+                render();
+            }
+
+            // --- CARRINHO & PEDIDOS ---
+            addToCart(product) {
+                const existing = this.cart.find(item => item.product.id === product.id);
+                if (existing) {
+                    existing.qty++;
+                } else {
+                    this.cart.push({ product, qty: 1, obs: '' });
+                }
+                render();
+            }
+
+            removeFromCart(index) {
+                this.cart.splice(index, 1);
+                // Se esvaziar no mobile, pode fechar o modal, mas opcional
+                render();
+            }
+
+            updateCartQty(index, change) {
+                if (this.cart[index].qty + change > 0) {
+                    this.cart[index].qty += change;
+                } else {
+                    this.cart.splice(index, 1);
+                }
+                render();
+            }
+
+            toggleMobileCart() {
+                this.isMobileCartOpen = !this.isMobileCartOpen;
+                render();
+            }
+
+            createOrder(orderData) {
+                const newOrder = {
+                    id: '#' + (this.data.orders.length + 1000),
+                    timestamp: new Date().toISOString(),
+                    attendant: this.currentUser.name,
+                    status: 'pendente',
+                    ...orderData
+                };
+                this.data.orders.push(newOrder);
+                this.saveData();
+                
+                // Limpeza do carrinho
+                this.cart = [];
+                this.isMobileCartOpen = false; // Fecha carrinho ao finalizar
+                
+                return newOrder;
+            }
+
+            updateOrderStatus(orderId, newStatus) {
+                const order = this.data.orders.find(o => o.id === orderId);
+                if (order) {
+                    order.status = newStatus;
+                    this.saveData();
+                    render(); // Re-renderiza para atualizar gráficos/tabelas
+                }
+            }
+            
+            // --- ADMIN ---
+            addProduct(product) {
+                product.id = Date.now();
+                this.data.products.push(product);
+                this.saveData();
+                render();
+            }
+
+            updateProduct(updatedProduct) {
+                const index = this.data.products.findIndex(p => p.id === updatedProduct.id);
+                if (index !== -1) {
+                    this.data.products[index] = updatedProduct;
+                    this.saveData();
+                    render();
+                }
+            }
+
+            removeProduct(id) {
+                if(!confirm('Tem certeza que deseja remover este produto?')) return;
+                this.data.products = this.data.products.filter(p => p.id !== id);
+                this.saveData();
+                render();
+            }
+
+            addUser(user) {
+                user.id = Date.now();
+                this.data.users.push(user);
+                this.saveData();
+                render();
+            }
+
+            updateUser(updatedUser) {
+                const index = this.data.users.findIndex(u => u.id === updatedUser.id);
+                if (index !== -1) {
+                    this.data.users[index] = updatedUser;
+                    this.saveData();
+                    render();
+                }
+            }
+
+            removeUser(id) {
+                if(!confirm('Tem certeza que deseja remover este funcionário?')) return;
+                this.data.users = this.data.users.filter(u => u.id !== id);
+                this.saveData();
+                render();
+            }
+
+            updatePaymentConfig(newConfig) {
+                this.data.paymentConfig = { ...this.data.paymentConfig, ...newConfig };
+                this.saveData();
+                alert('Configurações salvas!');
+                render();
+            }
+
+            // --- ANALYTICS ---
+            getAnalyticsData() {
+                const orders = this.data.orders.filter(o => o.status !== 'cancelado'); // Ignora cancelados nas contas
+                const totalRevenue = orders.reduce((acc, o) => acc + o.total, 0);
+                
+                // Agrupamento por Pagamento
+                const paymentStats = {};
+                orders.forEach(o => {
+                    // Simplifica string de pagamento (remove "Troco...")
+                    const method = o.paymentMethod.split(' ')[0].replace('_', ' ').toUpperCase(); 
+                    paymentStats[method] = (paymentStats[method] || 0) + o.total;
+                });
+
+                // Agrupamento por Vendedor
+                const attendantStats = {};
+                orders.forEach(o => {
+                    const att = o.attendant || 'Desconhecido';
+                    if (!attendantStats[att]) attendantStats[att] = { count: 0, total: 0 };
+                    attendantStats[att].count++;
+                    attendantStats[att].total += o.total;
+                });
+
+                // Top Produtos
+                const productStats = {};
+                orders.forEach(o => {
+                    o.items.forEach(item => {
+                        const name = item.product.name;
+                        if (!productStats[name]) productStats[name] = 0;
+                        productStats[name] += item.qty;
+                    });
+                });
+
+                // Ordenar Top Produtos
+                const topProducts = Object.entries(productStats)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5);
+
+                return {
+                    totalRevenue,
+                    totalOrders: orders.length,
+                    averageTicket: orders.length ? totalRevenue / orders.length : 0,
+                    paymentStats,
+                    attendantStats,
+                    topProducts,
+                    allOrders: this.data.orders // Inclui cancelados para a lista histórica
+                };
+            }
+        }
+
+        const appState = new Store();
+
+        // ==========================================
+        // 3. RENDERIZADORES DE VIEW (UI)
+        // ==========================================
+
+        const app = document.getElementById('app');
+
+        function render() {
+            app.innerHTML = ''; 
+
+            switch (appState.currentView) {
+                case 'login':
+                    app.appendChild(LoginView());
+                    break;
+                case 'pos':
+                    app.appendChild(MainLayout(POSView()));
+                    break;
+                case 'kitchen':
+                    app.appendChild(MainLayout(KitchenView()));
+                    break;
+                case 'admin':
+                    app.appendChild(MainLayout(AdminView()));
+                    break;
+                default:
+                    app.appendChild(LoginView());
+            }
+        }
+
+        function formatCurrency(value) {
+            return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        function MainLayout(contentNode) {
+            const container = document.createElement('div');
+            container.className = 'flex flex-col h-full bg-slate-100';
+
+            // Header com ajustes responsivos
+            const header = document.createElement('header');
+            header.className = 'bg-white border-b border-slate-200 px-4 lg:px-6 py-3 flex justify-between items-center shadow-sm z-20';
+            
+            let navLinks = '';
+            // Links simplificados no mobile (apenas ícones ou texto curto)
+            if (appState.currentUser.role === 'admin') {
+                navLinks = `
+                    <div class="hidden md:flex gap-4">
+                        <button onclick="appState.currentView = 'pos'; render()" class="text-sm font-medium text-slate-600 hover:text-primary">PDV</button>
+                        <button onclick="appState.currentView = 'kitchen'; render()" class="text-sm font-medium text-slate-600 hover:text-primary">Cozinha</button>
+                        <button onclick="appState.currentView = 'admin'; render()" class="text-sm font-medium text-primary">Admin</button>
+                    </div>
+                    <div class="md:hidden flex gap-3 text-lg">
+                        <button onclick="appState.currentView = 'pos'; render()" title="PDV"><i class="fa-solid fa-cash-register text-primary"></i></button>
+                        <button onclick="appState.currentView = 'kitchen'; render()" title="Cozinha"><i class="fa-solid fa-fire-burner text-slate-600"></i></button>
+                        <button onclick="appState.currentView = 'admin'; render()" title="Admin"><i class="fa-solid fa-gear text-slate-600"></i></button>
+                    </div>
+                `;
+            } else if (appState.currentUser.role === 'atendente') {
+                 navLinks = `
+                    <button onclick="appState.currentView = 'pos'; render()" class="text-sm font-medium text-primary mr-4 hidden md:inline">PDV</button>
+                    <button onclick="appState.currentView = 'kitchen'; render()" class="text-sm font-medium text-slate-600 hover:text-primary hidden md:inline">Visualizar Cozinha</button>
+                    <div class="md:hidden flex gap-3">
+                        <button onclick="appState.currentView = 'pos'; render()"><i class="fa-solid fa-cash-register text-primary"></i></button>
+                        <button onclick="appState.currentView = 'kitchen'; render()"><i class="fa-solid fa-fire-burner text-slate-600"></i></button>
+                    </div>
+                `;
+            }
+
+            header.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
+                        <i class="fa-solid fa-utensils"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-slate-800 leading-tight">GastroFlow</h1>
+                        <p class="text-xs text-slate-500 hidden sm:block">Sistema de Gestão</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 lg:gap-4">
+                    <nav>${navLinks}</nav>
+                    <div class="flex items-center gap-2 bg-slate-100 px-2 lg:px-3 py-1.5 rounded-full">
+                        <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                        <span class="text-xs lg:text-sm font-medium text-slate-700 max-w-[80px] truncate">${appState.currentUser.name}</span>
+                    </div>
+                    <button onclick="appState.logout()" class="text-slate-400 hover:text-red-500 transition-colors pl-2">
+                        <i class="fa-solid fa-right-from-bracket text-lg"></i>
+                    </button>
+                </div>
+            `;
+
+            container.appendChild(header);
+            
+            const contentWrapper = document.createElement('main');
+            contentWrapper.className = 'flex-1 overflow-hidden relative w-full';
+            contentWrapper.appendChild(contentNode);
+            container.appendChild(contentWrapper);
+
+            if (appState.currentUser.role !== 'cozinha') {
+                const footer = document.createElement('footer');
+                footer.className = 'bg-slate-800 text-slate-400 py-1 px-4 text-xs flex justify-between items-center z-20 hidden md:flex'; // Ocultar footer em mobile para ganhar espaço
+                footer.innerHTML = `
+                    <span>&copy; 2026 GastroFlow - Mobile Ready</span>
+                    <button onclick="checkAdminAccess()" class="hover:text-white transition-colors"><i class="fa-solid fa-lock"></i> Admin</button>
+                `;
+                container.appendChild(footer);
+            }
+
+            return container;
+        }
+
+        // --- VIEW: LOGIN ---
+
+        function LoginView() {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'h-full w-full flex items-center justify-center bg-slate-900 bg-opacity-90 p-4';
+            wrapper.style.backgroundImage = "url('https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=1920&q=80')";
+            wrapper.style.backgroundSize = 'cover';
+            wrapper.style.backgroundPosition = 'center';
+            
+            const card = document.createElement('div');
+            card.className = 'bg-white p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-sm md:max-w-md backdrop-blur-md bg-opacity-95 fade-in';
+            
+            let userOptions = appState.data.users.map(u => 
+                `<option value="${u.id}">${u.name} (${u.role.toUpperCase()})</option>`
+            ).join('');
+
+            card.innerHTML = `
+                <div class="text-center mb-6 md:mb-8">
+                    <div class="w-16 h-16 bg-primary text-white rounded-2xl mx-auto flex items-center justify-center text-3xl mb-4 shadow-lg shadow-orange-500/30">
+                        <i class="fa-solid fa-utensils"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800">Bem-vindo</h2>
+                    <p class="text-slate-500 text-sm">Selecione seu usuário</p>
+                </div>
+
+                <form id="loginForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Colaborador</label>
+                        <select id="loginUser" class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white text-base">
+                            ${userOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">PIN de Acesso</label>
+                        <input type="number" pattern="[0-9]*" inputmode="numeric" id="loginPin" placeholder="Digite seu PIN" class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-base" required>
+                    </div>
+                    <button type="submit" class="w-full bg-primary hover:bg-orange-700 text-white font-bold py-3 rounded-lg transition-all shadow-lg shadow-orange-500/30 active:scale-95">
+                        Entrar no Sistema
+                    </button>
+                    <p id="loginError" class="text-red-500 text-sm text-center hidden"><i class="fa-solid fa-circle-exclamation"></i> PIN Incorreto</p>
+                </form>
+            `;
+
+            card.querySelector('#loginForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const userId = document.getElementById('loginUser').value;
+                const pin = document.getElementById('loginPin').value;
+                
+                if (!appState.login(userId, pin)) {
+                    document.getElementById('loginError').classList.remove('hidden');
+                } else {
+                    render();
+                }
+            });
+
+            wrapper.appendChild(card);
+            return wrapper;
+        }
+
+        // --- VIEW: POS (POINT OF SALE) - MOBILE ADAPTIVE ---
+
+        function POSView() {
+            const container = document.createElement('div');
+            container.className = 'flex flex-col lg:flex-row h-full relative overflow-hidden'; // Garante que não scrolle o body
+
+            // --- COLUNA ESQUERDA (PRODUTOS) ---
+            const leftCol = document.createElement('div');
+            leftCol.className = 'flex-1 flex flex-col w-full h-full bg-slate-50 relative z-0';
+
+            // Menu Categorias (Scroll Horizontal)
+            const catContainer = document.createElement('div');
+            catContainer.className = 'flex gap-2 p-3 overflow-x-auto whitespace-nowrap border-b border-slate-200 bg-white hide-scroll flex-shrink-0';
+            
+            const allBtn = `<button onclick="filterProducts('all')" class="cat-btn active px-4 py-2 rounded-full text-sm font-medium bg-slate-800 text-white transition-all shadow-md flex-shrink-0">Todos</button>`;
+            const catBtns = appState.data.categories.map(c => 
+                `<button onclick="filterProducts('${c.id}')" class="cat-btn px-4 py-2 rounded-full text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all border border-transparent flex-shrink-0"><i class="fa-solid ${c.icon} mr-2"></i>${c.name}</button>`
+            ).join('');
+            
+            catContainer.innerHTML = allBtn + catBtns;
+            leftCol.appendChild(catContainer);
+
+            // Grid de Produtos
+            const productGrid = document.createElement('div');
+            productGrid.id = 'productGrid';
+            // Grid responsivo: 2 colunas no celular, 3 no tablet, 4 no desktop
+            productGrid.className = 'flex-1 p-3 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pb-24 lg:pb-4 content-start';
+            leftCol.appendChild(productGrid);
+
+            // --- COLUNA DIREITA (CARRINHO) ---
+            // Lógica: Em Desktop é fixo à direita. Em Mobile, é um overlay 'absolute' controlado por isMobileCartOpen
+            const rightCol = document.createElement('div');
+            const cartClasses = appState.isMobileCartOpen 
+                ? 'absolute inset-0 z-40 flex flex-col bg-slate-50 transition-transform duration-300 transform translate-y-0' // Mobile Aberto
+                : 'hidden lg:flex lg:w-96 lg:flex-col lg:bg-white lg:border-l lg:border-slate-200 lg:shadow-xl z-20'; // Desktop Fixo / Mobile Fechado
+
+            rightCol.className = cartClasses;
+
+            // Header do Carrinho
+            rightCol.innerHTML = `
+                <div class="p-4 bg-white border-b border-slate-200 flex justify-between items-center shadow-sm flex-shrink-0">
+                    <h2 class="font-bold text-lg text-slate-800"><i class="fa-solid fa-cart-shopping mr-2 text-primary"></i>Pedido</h2>
+                    <!-- Botão Fechar só no mobile -->
+                    <button onclick="appState.toggleMobileCart()" class="lg:hidden w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500">
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </button>
+                </div>
+                <div id="cartItems" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50"></div>
+                <div class="p-4 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] flex-shrink-0">
+                    <div class="flex justify-between mb-2 text-slate-500 text-sm">
+                        <span>Subtotal</span>
+                        <span id="cartSubtotal">R$ 0,00</span>
+                    </div>
+                    <div class="flex justify-between mb-4 text-xl font-bold text-slate-800">
+                        <span>Total</span>
+                        <span id="cartTotal">R$ 0,00</span>
+                    </div>
+                    <button onclick="openCheckoutModal()" class="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-green-600/20 transition-all flex justify-between px-6 items-center text-base">
+                        <span>Finalizar</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            `;
+
+            container.appendChild(leftCol);
+            container.appendChild(rightCol);
+
+            // --- BOTÃO FLUTUANTE (FAB) PARA MOBILE ---
+            // Só aparece se o carrinho tiver itens e estivermos no mobile
+            const cartTotal = appState.cart.reduce((acc, item) => acc + (item.product.price * item.qty), 0);
+            const cartCount = appState.cart.reduce((acc, item) => acc + item.qty, 0);
+            
+            if (cartCount > 0) {
+                const fab = document.createElement('div');
+                fab.className = 'fixed bottom-4 right-4 z-30 lg:hidden animate-bounce-in';
+                fab.innerHTML = `
+                    <button onclick="appState.toggleMobileCart()" class="bg-slate-800 text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-slate-700">
+                        <div class="relative">
+                            <i class="fa-solid fa-cart-shopping text-xl"></i>
+                            <span class="absolute -top-2 -right-2 bg-primary text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-slate-800 font-bold">${cartCount}</span>
+                        </div>
+                        <div class="flex flex-col items-start leading-none">
+                            <span class="text-[10px] text-slate-400 uppercase font-bold">Total</span>
+                            <span class="font-bold text-sm">${formatCurrency(cartTotal)}</span>
+                        </div>
+                    </button>
+                `;
+                // Se o carrinho mobile já estiver aberto, esconde o FAB
+                if (!appState.isMobileCartOpen) {
+                    container.appendChild(fab);
+                }
+            }
+
+            setTimeout(() => {
+                renderProductGrid(productGrid, 'all');
+                renderCart(rightCol.querySelector('#cartItems'));
+            }, 0);
+
+            window.filterProducts = (catId) => {
+                document.querySelectorAll('.cat-btn').forEach(btn => {
+                    if ((catId === 'all' && btn.textContent.includes('Todos')) || btn.innerHTML.includes(catId)) {
+                        btn.className = "cat-btn active px-4 py-2 rounded-full text-sm font-medium bg-slate-800 text-white transition-all shadow-md flex-shrink-0";
+                    } else {
+                        btn.className = "cat-btn px-4 py-2 rounded-full text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all border border-transparent flex-shrink-0";
+                    }
+                });
+                renderProductGrid(productGrid, catId);
+            };
+
+            return container;
+        }
+
+        function renderProductGrid(container, catId) {
+            container.innerHTML = '';
+            const products = catId === 'all' 
+                ? appState.data.products 
+                : appState.data.products.filter(p => p.categoryId === catId);
+
+            products.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden active:scale-95 transition-all cursor-pointer group flex flex-col h-full'; 
+                card.onclick = () => appState.addToCart(p);
+                
+                card.innerHTML = `
+                    <div class="aspect-[4/3] bg-slate-200 relative overflow-hidden flex-shrink-0">
+                        <img src="${p.image}" 
+                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                             alt="${p.name}" 
+                             onerror="this.src='https://placehold.co/400x300/e2e8f0/64748b?text=Sem+Imagem'">
+                        <div class="absolute bottom-2 right-2 bg-white/95 px-2 py-1 rounded-md text-xs font-bold shadow-sm backdrop-blur-sm">
+                            ${formatCurrency(p.price)}
+                        </div>
+                    </div>
+                    <div class="p-2.5 flex-1 flex flex-col">
+                        <h3 class="font-bold text-slate-800 text-xs sm:text-sm leading-tight mb-1 line-clamp-2">${p.name}</h3>
+                        <p class="text-[10px] text-slate-500 line-clamp-2 mt-auto">${p.description}</p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderCart(container) {
+            container.innerHTML = '';
+            
+            if (appState.cart.length === 0) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-slate-400">
+                        <i class="fa-solid fa-basket-shopping text-4xl mb-3 opacity-50"></i>
+                        <p class="text-sm">Seu carrinho está vazio</p>
+                        <p class="text-xs mt-2">Adicione itens do menu</p>
+                    </div>
+                `;
+                document.getElementById('cartSubtotal').innerText = formatCurrency(0);
+                document.getElementById('cartTotal').innerText = formatCurrency(0);
+                return;
+            }
+
+            let total = 0;
+
+            appState.cart.forEach((item, index) => {
+                const itemTotal = item.product.price * item.qty;
+                total += itemTotal;
+
+                const div = document.createElement('div');
+                div.className = 'flex gap-3 bg-white p-3 rounded-lg border border-slate-100 shadow-sm relative group';
+                div.innerHTML = `
+                    <div class="w-14 h-14 bg-slate-100 rounded-md overflow-hidden flex-shrink-0">
+                        <img src="${item.product.image}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/100x100/e2e8f0/64748b?text=Foto'">
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-start mb-1">
+                            <h4 class="font-medium text-sm text-slate-800 leading-tight pr-2 truncate">${item.product.name}</h4>
+                            <span class="text-xs font-bold text-slate-600 whitespace-nowrap">${formatCurrency(itemTotal)}</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center bg-slate-100 rounded-lg h-7">
+                                <button onclick="appState.updateCartQty(${index}, -1)" class="w-7 h-full flex items-center justify-center text-slate-500 hover:text-red-500"><i class="fa-solid fa-minus text-xs"></i></button>
+                                <span class="text-xs font-medium w-6 text-center">${item.qty}</span>
+                                <button onclick="appState.updateCartQty(${index}, 1)" class="w-7 h-full flex items-center justify-center text-slate-500 hover:text-green-500"><i class="fa-solid fa-plus text-xs"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="appState.removeFromCart(${index})" class="absolute -top-1 -right-1 bg-red-100 text-red-500 rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors shadow-sm">
+                        <i class="fa-solid fa-xmark text-[10px]"></i>
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+
+            document.getElementById('cartSubtotal').innerText = formatCurrency(total);
+            document.getElementById('cartTotal').innerText = formatCurrency(total);
+        }
+
+        // --- CHECKOUT MODAL (Responsivo) ---
+
+        window.openCheckoutModal = () => {
+            if (appState.cart.length === 0) return alert("Carrinho vazio!");
+
+            const total = appState.cart.reduce((acc, item) => acc + (item.product.price * item.qty), 0);
+            const config = appState.data.paymentConfig;
+
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 fade-in';
+            modal.id = 'checkoutModal';
+            
+            // Modal agora é full width em baixo no mobile, e centralizado no desktop
+            modal.innerHTML = `
+                <div class="bg-white w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] h-auto">
+                    <div class="p-4 bg-slate-800 text-white flex justify-between items-center flex-shrink-0">
+                        <h3 class="font-bold text-lg">Finalizar Pedido</h3>
+                        <button onclick="document.getElementById('checkoutModal').remove()" class="text-slate-400 hover:text-white p-2"><i class="fa-solid fa-xmark text-xl"></i></button>
+                    </div>
+                    
+                    <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+                        
+                        <!-- Tipo de Pedido -->
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Tipo de Entrega</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="orderType" value="balcao" class="peer sr-only" checked onchange="toggleDeliveryFields(false)">
+                                    <div class="p-3 border-2 border-slate-200 rounded-xl peer-checked:border-primary peer-checked:bg-orange-50 text-center transition-all h-full flex flex-col items-center justify-center">
+                                        <i class="fa-solid fa-shop text-xl mb-1 block text-slate-500 peer-checked:text-primary"></i>
+                                        <span class="text-sm font-medium">Retirada</span>
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="orderType" value="delivery" class="peer sr-only" onchange="toggleDeliveryFields(true)">
+                                    <div class="p-3 border-2 border-slate-200 rounded-xl peer-checked:border-primary peer-checked:bg-orange-50 text-center transition-all h-full flex flex-col items-center justify-center">
+                                        <i class="fa-solid fa-motorcycle text-xl mb-1 block text-slate-500 peer-checked:text-primary"></i>
+                                        <span class="text-sm font-medium">Delivery</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Dados do Cliente -->
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <h4 class="font-bold text-sm text-slate-700 mb-3 border-b pb-2">Dados do Cliente</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div class="col-span-2 md:col-span-1">
+                                    <label class="text-xs text-slate-500 mb-1 block">Nome *</label>
+                                    <input type="text" id="clientName" class="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white" placeholder="Nome do cliente">
+                                </div>
+                                <div class="delivery-field hidden col-span-2 md:col-span-1">
+                                    <label class="text-xs text-slate-500 mb-1 block">WhatsApp</label>
+                                    <input type="tel" id="clientPhone" class="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white" placeholder="(00) 00000-0000">
+                                </div>
+                                <div class="delivery-field hidden col-span-2">
+                                    <label class="text-xs text-slate-500 mb-1 block">Endereço</label>
+                                    <input type="text" id="clientAddress" class="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white" placeholder="Endereço completo">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pagamento -->
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Pagamento</label>
+                            <select id="paymentMethod" onchange="handlePaymentChange(this.value)" class="w-full p-3 border border-slate-300 rounded-lg bg-white mb-3 text-sm">
+                                <option value="pix">Pix (Instantâneo)</option>
+                                <option value="credito">Cartão de Crédito</option>
+                                <option value="debito">Cartão de Débito</option>
+                                <option value="dinheiro">Dinheiro</option>
+                                <option value="usdt_bep20">USDT (BEP-20)</option>
+                                <option value="usdt_poly">USDT (Polygon)</option>
+                                <option value="btc">Bitcoin</option>
+                            </select>
+
+                            <!-- Campo Troco -->
+                            <div id="changeField" class="hidden bg-yellow-50 p-3 rounded-lg border border-yellow-200 mb-3">
+                                <label class="text-xs text-yellow-800 font-bold block mb-1">Troco para quanto?</label>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-slate-500">R$</span>
+                                    <input type="number" id="cashAmount" inputmode="decimal" class="flex-1 p-2 bg-white border border-yellow-300 rounded text-sm" placeholder="0,00">
+                                </div>
+                            </div>
+
+                            <!-- Info Pagamento -->
+                            <div id="paymentInfoBox" class="hidden bg-slate-800 text-white p-4 rounded-xl text-xs font-mono break-all">
+                                <p id="paymentInfoLabel" class="text-slate-400 mb-1">Dados:</p>
+                                <span id="paymentInfoValue" class="select-all font-bold text-sm">...</span>
+                                <button onclick="copyPaymentInfo()" class="ml-2 text-primary hover:text-white p-1"><i class="fa-regular fa-copy"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-slate-100 border-t border-slate-200 flex justify-between items-center flex-shrink-0 pb-6 sm:pb-4">
+                        <div class="text-right">
+                            <p class="text-xs text-slate-500">Total</p>
+                            <p class="text-xl font-bold text-slate-800">${formatCurrency(total)}</p>
+                        </div>
+                        <button onclick="submitOrder(${total})" class="bg-primary hover:bg-orange-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-orange-500/30 transition-all text-sm active:scale-95">
+                            Confirmar
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            app.appendChild(modal);
+
+            window.toggleDeliveryFields = (isDelivery) => {
+                const fields = document.querySelectorAll('.delivery-field');
+                fields.forEach(f => isDelivery ? f.classList.remove('hidden') : f.classList.add('hidden'));
+            };
+
+            window.handlePaymentChange = (method) => {
+                const changeField = document.getElementById('changeField');
+                const infoBox = document.getElementById('paymentInfoBox');
+                const infoLabel = document.getElementById('paymentInfoLabel');
+                const infoValue = document.getElementById('paymentInfoValue');
+
+                changeField.classList.add('hidden');
+                infoBox.classList.add('hidden');
+
+                const config = appState.data.paymentConfig;
+
+                if (method === 'dinheiro') {
+                    changeField.classList.remove('hidden');
+                } else if (method === 'pix') {
+                    infoBox.classList.remove('hidden');
+                    infoLabel.innerText = "Chave Pix:";
+                    infoValue.innerText = config.pixKey;
+                } else if (['usdt_bep20', 'usdt_poly', 'btc', 'eth'].includes(method)) {
+                    infoBox.classList.remove('hidden');
+                    infoLabel.innerText = "Endereço da Carteira:";
+                    infoValue.innerText = config[method] || 'Não configurado';
+                }
+            };
+
+            window.copyPaymentInfo = () => {
+                const text = document.getElementById('paymentInfoValue').innerText;
+                navigator.clipboard.writeText(text);
+                alert("Copiado!");
+            };
+
+            window.submitOrder = (total) => {
+                const name = document.getElementById('clientName').value;
+                if (!name) return alert("Nome do cliente é obrigatório!");
+
+                const type = document.querySelector('input[name="orderType"]:checked').value;
+                const payment = document.getElementById('paymentMethod').value;
+                
+                let deliveryData = {};
+                if (type === 'delivery') {
+                    const address = document.getElementById('clientAddress').value;
+                    if (!address) return alert("Endereço é obrigatório para Delivery!");
+                    deliveryData = {
+                        address: address,
+                        phone: document.getElementById('clientPhone').value,
+                        email: document.getElementById('clientEmail').value
+                    };
+                }
+
+                let changeData = '';
+                if (payment === 'dinheiro') {
+                    const cashVal = parseFloat(document.getElementById('cashAmount').value);
+                    if (cashVal) {
+                        const change = cashVal - total;
+                        if (change < 0) return alert("Valor em dinheiro menor que o total!");
+                        changeData = ` (Troco p/ ${formatCurrency(cashVal)} -> ${formatCurrency(change)})`;
+                    }
+                }
+
+                const orderData = {
+                    clientName: name,
+                    type: type,
+                    paymentMethod: payment + changeData,
+                    total: total,
+                    items: [...appState.cart],
+                    ...deliveryData
+                };
+
+                const newOrder = appState.createOrder(orderData);
+                
+                // Removido render() aqui para evitar limpar o DOM antes de remover o modal
+                
+                // Remover modal explicitamente primeiro se ele existe
+                const modal = document.getElementById('checkoutModal');
+                if(modal) modal.remove();
+                
+                // Agora sim redirecionar e renderizar
+                appState.currentView = 'kitchen';
+                render();
+
+                showSuccessReceipt(newOrder);
+            };
+        }
+
+        function showSuccessReceipt(order) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 fade-in';
+            
+            const itemsHtml = order.items.map(i => 
+                `<div class="flex justify-between text-xs py-1 border-b border-dashed border-slate-300">
+                    <span>${i.qty}x ${i.product.name}</span>
+                    <span>${formatCurrency(i.product.price * i.qty)}</span>
+                </div>`
+            ).join('');
+
+            modal.innerHTML = `
+                <div class="bg-white w-80 receipt-pattern p-6 rounded-sm shadow-2xl relative">
+                    <div class="text-center border-b-2 border-slate-800 pb-4 mb-4">
+                        <h2 class="font-bold text-xl uppercase tracking-widest">GastroFlow</h2>
+                        <p class="text-xs text-slate-500">Comprovante de Pedido</p>
+                    </div>
+                    
+                    <div class="space-y-2 mb-4">
+                        <div class="flex justify-between font-bold text-lg">
+                            <span>PEDIDO</span>
+                            <span>${order.id}</span>
+                        </div>
+                        <p class="text-xs">Cliente: <strong>${order.clientName}</strong></p>
+                        <p class="text-xs">Tipo: <span class="uppercase bg-slate-200 px-1 rounded">${order.type}</span></p>
+                        <p class="text-xs">Atendente: ${order.attendant}</p>
+                    </div>
+
+                    <div class="mb-4">
+                        ${itemsHtml}
+                    </div>
+
+                    <div class="flex justify-between font-bold text-lg border-t-2 border-slate-800 pt-2 mb-4">
+                        <span>TOTAL</span>
+                        <span>${formatCurrency(order.total)}</span>
+                    </div>
+
+                    <div class="text-xs text-center space-y-1 text-slate-500">
+                        <p>Pagamento: ${order.paymentMethod.toUpperCase()}</p>
+                        <p>${new Date(order.timestamp).toLocaleString()}</p>
+                        <p class="mt-4 font-mono">*** OBRIGADO PELA PREFERÊNCIA ***</p>
+                    </div>
+
+                    <button onclick="this.closest('.fixed').remove()" class="w-full mt-6 bg-slate-800 text-white py-2 rounded font-bold hover:bg-slate-700">Fechar / Ver na Cozinha</button>
+                </div>
+            `;
+            app.appendChild(modal);
+        }
+
+        // --- VIEW: KITCHEN (KDS) ---
+
+        function KitchenView() {
+            const container = document.createElement('div');
+            container.className = 'h-full p-4 lg:p-6 bg-slate-100 overflow-x-auto';
+            
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl lg:text-2xl font-bold text-slate-700">Monitor de Preparo</h2>
+                    <button onclick="render()" class="bg-white p-2 rounded shadow text-slate-600 text-sm"><i class="fa-solid fa-rotate mr-1"></i> Atualizar</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 pb-20">
+                    <!-- Coluna Pendente -->
+                    <div class="flex flex-col bg-red-50 rounded-xl p-3 border border-red-100 h-fit min-h-[200px]">
+                        <h3 class="font-bold text-red-800 mb-4 flex items-center gap-2 text-sm uppercase tracking-wide"><i class="fa-regular fa-clock"></i> Pendentes</h3>
+                        <div class="space-y-3" id="col-pendente"></div>
+                    </div>
+                    <!-- Coluna Preparando -->
+                    <div class="flex flex-col bg-yellow-50 rounded-xl p-3 border border-yellow-100 h-fit min-h-[200px]">
+                        <h3 class="font-bold text-yellow-800 mb-4 flex items-center gap-2 text-sm uppercase tracking-wide"><i class="fa-solid fa-fire-burner"></i> Preparando</h3>
+                        <div class="space-y-3" id="col-preparando"></div>
+                    </div>
+                    <!-- Coluna Pronto -->
+                    <div class="flex flex-col bg-green-50 rounded-xl p-3 border border-green-100 h-fit min-h-[200px]">
+                        <h3 class="font-bold text-green-800 mb-4 flex items-center gap-2 text-sm uppercase tracking-wide"><i class="fa-solid fa-check-circle"></i> Prontos</h3>
+                        <div class="space-y-3" id="col-pronto"></div>
+                    </div>
+                </div>
+            `;
+
+            setTimeout(() => updateKitchenBoard(container), 0);
+            
+            const interval = setInterval(() => {
+                if (document.body.contains(container)) updateKitchenBoard(container);
+                else clearInterval(interval);
+            }, 10000);
+
+            return container;
+        }
+
+        function updateKitchenBoard(container) {
+            const cols = {
+                'pendente': container.querySelector('#col-pendente'),
+                'preparando': container.querySelector('#col-preparando'),
+                'pronto': container.querySelector('#col-pronto')
+            };
+
+            Object.values(cols).forEach(c => c.innerHTML = '');
+
+            const activeOrders = appState.data.orders.filter(o => o.status !== 'entregue' && o.status !== 'cancelado').reverse();
+            
+            // VERIFICAÇÃO DE PERMISSÃO (COZINHA OU ADMIN)
+            const isKitchenOrAdmin = ['cozinha', 'admin'].includes(appState.currentUser.role);
+
+            activeOrders.forEach(order => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-lg shadow-sm border-l-4 p-3 fade-in';
+                
+                if (order.status === 'pendente') card.classList.add('border-red-500');
+                else if (order.status === 'preparando') card.classList.add('border-yellow-500');
+                else card.classList.add('border-green-500');
+
+                const itemsList = order.items.map(i => `<li class="text-sm font-medium text-slate-700">${i.qty}x ${i.product.name}</li>`).join('');
+
+                let actions = '';
+                
+                // LÓGICA DE BOTÕES BASEADA NO CARGO
+                if (order.status === 'pendente') {
+                    if (isKitchenOrAdmin) {
+                        actions = `<button onclick="appState.updateOrderStatus('${order.id}', 'preparando')" class="w-full mt-3 bg-yellow-500 text-white py-2 rounded font-bold hover:bg-yellow-600 text-sm">Iniciar Preparo</button>`;
+                    } else {
+                        // Atendente vê apenas status
+                        actions = `<div class="mt-2 text-xs text-center text-slate-400 italic bg-slate-50 py-1 rounded border border-slate-100">Aguardando Cozinha</div>`;
+                    }
+                } else if (order.status === 'preparando') {
+                    if (isKitchenOrAdmin) {
+                        actions = `<button onclick="appState.updateOrderStatus('${order.id}', 'pronto')" class="w-full mt-3 bg-green-500 text-white py-2 rounded font-bold hover:bg-green-600 text-sm">Marcar Pronto</button>`;
+                    } else {
+                        // Atendente vê apenas status
+                        actions = `<div class="mt-2 text-xs text-center text-yellow-600 italic bg-yellow-50 py-1 rounded border border-yellow-100 animate-pulse">Em preparação...</div>`;
+                    }
+                } else if (order.status === 'pronto') {
+                    // Ambos podem entregar (Atendente retira o pedido pronto)
+                    actions = `<button onclick="appState.updateOrderStatus('${order.id}', 'entregue')" class="w-full mt-3 bg-slate-600 text-white py-2 rounded font-bold hover:bg-slate-700 text-sm">Finalizar/Entregar</button>`;
+                }
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="font-bold text-base">${order.id}</span>
+                        <span class="text-[10px] bg-slate-100 px-2 py-1 rounded text-slate-500">${new Date(order.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-2 truncate">${order.clientName} (${order.type})</p>
+                    <ul class="list-disc pl-4 space-y-1 mb-2 bg-slate-50 p-2 rounded">
+                        ${itemsList}
+                    </ul>
+                    ${order.type === 'delivery' ? '<div class="text-xs text-primary font-bold mb-2"><i class="fa-solid fa-motorcycle"></i> Delivery</div>' : ''}
+                    ${actions}
+                `;
+
+                if (cols[order.status]) {
+                    cols[order.status].appendChild(card);
+                }
+            });
+        }
+
+        // --- VIEW: ADMIN ---
+
+        function AdminView() {
+            const container = document.createElement('div');
+            container.className = 'p-4 lg:p-6 max-w-5xl mx-auto h-full flex flex-col';
+            
+            let activeTab = 'reports'; // Mudado default para reports para demonstrar
+
+            const renderContent = () => {
+                const contentArea = container.querySelector('#adminContent');
+                contentArea.innerHTML = '';
+
+                // Header Tabs Scrollable
+                container.querySelector('#tabHeader').innerHTML = `
+                    <div class="flex gap-4 lg:gap-6 border-b border-slate-200 mb-6 overflow-x-auto whitespace-nowrap hide-scroll">
+                        <button onclick="switchTab('reports')" class="tab-btn pb-3 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors flex-shrink-0 ${activeTab === 'reports' ? 'active' : ''}">
+                            <i class="fa-solid fa-chart-line mr-2"></i>Relatórios
+                        </button>
+                        <button onclick="switchTab('products')" class="tab-btn pb-3 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors flex-shrink-0 ${activeTab === 'products' ? 'active' : ''}">
+                            <i class="fa-solid fa-burger mr-2"></i>Produtos
+                        </button>
+                        <button onclick="switchTab('users')" class="tab-btn pb-3 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors flex-shrink-0 ${activeTab === 'users' ? 'active' : ''}">
+                            <i class="fa-solid fa-users mr-2"></i>Funcionários
+                        </button>
+                        <button onclick="switchTab('payments')" class="tab-btn pb-3 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors flex-shrink-0 ${activeTab === 'payments' ? 'active' : ''}">
+                            <i class="fa-solid fa-wallet mr-2"></i>Pagamentos
+                        </button>
+                    </div>
+                `;
+
+                if (activeTab === 'reports') {
+                    contentArea.innerHTML = renderReportsTab();
+                } else if (activeTab === 'products') {
+                    contentArea.innerHTML = renderProductsTab();
+                } else if (activeTab === 'users') {
+                    contentArea.innerHTML = renderUsersTab();
+                } else if (activeTab === 'payments') {
+                    contentArea.innerHTML = renderPaymentsTab();
+                }
+            };
+
+            window.switchTab = (tab) => {
+                activeTab = tab;
+                renderContent();
+            };
+
+            container.innerHTML = `
+                <div class="mb-4">
+                    <h2 class="text-2xl lg:text-3xl font-bold text-slate-800">Painel Administrativo</h2>
+                    <p class="text-sm text-slate-500">Gestão completa do sistema</p>
+                </div>
+                <div id="tabHeader"></div>
+                <div id="adminContent" class="flex-1 overflow-y-auto pb-10"></div>
+            `;
+
+            setTimeout(renderContent, 0);
+
+            return container;
+        }
+
+        // --- SUB-VIEWS DO ADMIN ---
+
+        // (NOVO) ABA RELATÓRIOS
+        function renderReportsTab() {
+            const data = appState.getAnalyticsData();
+            const topSellerName = Object.entries(data.attendantStats).sort((a,b) => b[1].total - a[1].total)[0]?.[0] || '-';
+            const topSellerValue = Object.entries(data.attendantStats).sort((a,b) => b[1].total - a[1].total)[0]?.[1].total || 0;
+
+            // Gera HTML para barras de pagamento
+            const paymentBars = Object.entries(data.paymentStats).map(([method, total]) => {
+                const percent = (total / data.totalRevenue) * 100;
+                return `
+                    <div class="mb-2">
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="font-bold text-slate-700">${method}</span>
+                            <span class="text-slate-500">${formatCurrency(total)} (${Math.round(percent)}%)</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-2">
+                            <div class="bg-blue-600 h-2 rounded-full" style="width: ${percent}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('') || '<p class="text-xs text-slate-400">Sem dados</p>';
+
+            // Gera HTML para Top Produtos
+            const productBars = data.topProducts.map(([name, count]) => {
+                return `
+                    <div class="flex justify-between items-center py-2 border-b border-slate-50 last:border-0">
+                        <span class="text-xs font-medium text-slate-700 truncate w-2/3">${name}</span>
+                        <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">${count} vends</span>
+                    </div>
+                `;
+            }).join('') || '<p class="text-xs text-slate-400">Sem dados</p>';
+
+            return `
+                <div class="space-y-6 animate-fade-in">
+                    
+                    <!-- KPI Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <p class="text-xs text-slate-500 uppercase font-bold mb-1">Faturamento Total</p>
+                            <h3 class="text-2xl font-bold text-slate-800">${formatCurrency(data.totalRevenue)}</h3>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <p class="text-xs text-slate-500 uppercase font-bold mb-1">Total de Pedidos</p>
+                            <h3 class="text-2xl font-bold text-slate-800">${data.totalOrders}</h3>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <p class="text-xs text-slate-500 uppercase font-bold mb-1">Ticket Médio</p>
+                            <h3 class="text-2xl font-bold text-slate-800">${formatCurrency(data.averageTicket)}</h3>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <p class="text-xs text-slate-500 uppercase font-bold mb-1">Melhor Vendedor</p>
+                            <h3 class="text-lg font-bold text-slate-800 truncate">${topSellerName}</h3>
+                            <p class="text-xs text-green-600 font-medium">${formatCurrency(topSellerValue)}</p>
+                        </div>
+                    </div>
+
+                    <!-- Gráficos Simplificados -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                            <h4 class="font-bold text-sm text-slate-700 mb-4 border-b pb-2">Vendas por Pagamento</h4>
+                            ${paymentBars}
+                        </div>
+                        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                            <h4 class="font-bold text-sm text-slate-700 mb-4 border-b pb-2">Produtos Mais Vendidos</h4>
+                            ${productBars}
+                        </div>
+                    </div>
+
+                    <!-- Tabela de Histórico -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="p-4 border-b border-slate-200 bg-slate-50">
+                            <h3 class="font-bold text-slate-700">Histórico de Transações</h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm text-left text-slate-500 min-w-[700px]">
+                                <thead class="text-xs text-slate-700 uppercase bg-slate-50 border-b">
+                                    <tr>
+                                        <th class="px-4 py-3">Data/Hora</th>
+                                        <th class="px-4 py-3">ID</th>
+                                        <th class="px-4 py-3">Vendedor</th>
+                                        <th class="px-4 py-3">Pagamento</th>
+                                        <th class="px-4 py-3">Status</th>
+                                        <th class="px-4 py-3">Total</th>
+                                        <th class="px-4 py-3">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.allOrders.slice().reverse().map(o => {
+                                        const isCancelled = o.status === 'cancelado';
+                                        return `
+                                        <tr class="bg-white border-b hover:bg-slate-50 ${isCancelled ? 'opacity-50 bg-red-50' : ''}">
+                                            <td class="px-4 py-3">${new Date(o.timestamp).toLocaleString()}</td>
+                                            <td class="px-4 py-3 font-mono font-bold">${o.id}</td>
+                                            <td class="px-4 py-3">${o.attendant}</td>
+                                            <td class="px-4 py-3 truncate max-w-[150px]">${o.paymentMethod}</td>
+                                            <td class="px-4 py-3">
+                                                <span class="px-2 py-1 rounded text-xs font-bold uppercase ${
+                                                    isCancelled ? 'bg-red-200 text-red-800' : 
+                                                    o.status === 'entregue' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                                }">${o.status}</span>
+                                            </td>
+                                            <td class="px-4 py-3 font-bold ${isCancelled ? 'line-through' : 'text-slate-800'}">${formatCurrency(o.total)}</td>
+                                            <td class="px-4 py-3">
+                                                ${!isCancelled ? 
+                                                `<button onclick="cancelOrder('${o.id}')" class="text-red-600 hover:text-red-800 text-xs border border-red-200 px-2 py-1 rounded bg-red-50 hover:bg-red-100 transition-colors">
+                                                    Estornar
+                                                </button>` : '<span class="text-xs italic">Cancelado</span>'}
+                                            </td>
+                                        </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderProductsTab() {
+            return `
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+                    <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                        <h3 class="font-bold text-slate-700">Catálogo de Produtos</h3>
+                        <button onclick="openNewProductForm()" class="bg-primary hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                            <i class="fa-solid fa-plus mr-2"></i>Novo Produto
+                        </button>
+                    </div>
+
+                    <!-- Formulário Novo/Editar Produto -->
+                    <div id="addProductForm" class="hidden bg-slate-100 p-4 border-b border-slate-200 fade-in">
+                        <form onsubmit="handleNewProduct(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input type="hidden" name="id" id="productId">
+                            
+                            <input type="text" name="name" placeholder="Nome do Produto" class="p-2 rounded border" required>
+                            <input type="number" step="0.01" name="price" placeholder="Preço" class="p-2 rounded border" required>
+                            <select name="categoryId" class="p-2 rounded border">
+                                ${appState.data.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                            </select>
+                            
+                            <div class="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-500 mb-1">Imagem URL (Opção 1)</label>
+                                    <input type="text" name="image" placeholder="https://..." class="w-full p-2 rounded border">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-500 mb-1">Ou Carregar Arquivo (Opção 2)</label>
+                                    <div class="flex gap-2 items-center">
+                                        <label class="cursor-pointer bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-2 rounded text-sm transition-colors flex-1 text-center">
+                                            <i class="fa-solid fa-cloud-arrow-up mr-2 text-primary"></i> Escolher Foto
+                                            <input type="file" id="fileUpload" accept="image/*" class="hidden" onchange="previewImage(this)">
+                                        </label>
+                                    </div>
+                                    <div id="imagePreview" class="mt-2 hidden">
+                                        <div class="flex items-center gap-2 bg-green-50 p-2 rounded border border-green-200">
+                                            <img src="" class="h-8 w-8 object-cover rounded">
+                                            <span class="text-xs text-green-700 font-medium">Imagem pronta!</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <textarea name="description" placeholder="Descrição" class="p-2 rounded border col-span-1 md:col-span-2"></textarea>
+                            <button type="submit" id="saveBtn" class="bg-green-600 text-white py-2 rounded col-span-1 md:col-span-2 hover:bg-green-700 font-medium shadow-md">Salvar Produto</button>
+                        </form>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-slate-500 min-w-[600px]">
+                            <thead class="text-xs text-slate-700 uppercase bg-slate-50 border-b">
+                                <tr>
+                                    <th class="px-6 py-3">Produto</th>
+                                    <th class="px-6 py-3">Categoria</th>
+                                    <th class="px-6 py-3">Preço</th>
+                                    <th class="px-6 py-3">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${appState.data.products.map(p => {
+                                    const cat = appState.data.categories.find(c => c.id === p.categoryId)?.name || 'N/A';
+                                    return `
+                                    <tr class="bg-white border-b hover:bg-slate-50">
+                                        <td class="px-6 py-4 font-medium text-slate-900 flex items-center gap-3">
+                                            <img src="${p.image}" class="w-8 h-8 rounded object-cover" onerror="this.src='https://placehold.co/50x50/e2e8f0/64748b?text=Img';">
+                                            ${p.name}
+                                        </td>
+                                        <td class="px-6 py-4">${cat}</td>
+                                        <td class="px-6 py-4 text-green-600 font-bold">${formatCurrency(p.price)}</td>
+                                        <td class="px-6 py-4 flex gap-2">
+                                            <button onclick="editProduct(${p.id})" class="text-blue-600 hover:text-blue-900 px-2 py-1 rounded hover:bg-blue-50 transition-colors" title="Editar">
+                                                <i class="fa-solid fa-pen-to-square"></i>
+                                            </button>
+                                            <button onclick="appState.removeProduct(${p.id})" class="text-red-600 hover:text-red-900 px-2 py-1 rounded hover:bg-red-50 transition-colors" title="Remover">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    `
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderUsersTab() {
+            return `
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+                    <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                        <h3 class="font-bold text-slate-700">Equipe e Acessos</h3>
+                        <button onclick="openNewUserForm()" class="bg-primary hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                            <i class="fa-solid fa-plus mr-2"></i>Novo Funcionário
+                        </button>
+                    </div>
+
+                    <div id="addUserForm" class="hidden bg-slate-100 p-4 border-b border-slate-200 fade-in">
+                        <form onsubmit="handleNewUser(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <input type="hidden" name="id" id="userId">
+                            <input type="text" name="name" placeholder="Nome do Funcionário" class="p-2 rounded border" required>
+                            <select name="role" class="p-2 rounded border">
+                                <option value="atendente">Atendente</option>
+                                <option value="cozinha">Cozinha</option>
+                                <option value="admin">Administrador</option>
+                            </select>
+                            <input type="text" name="pin" placeholder="PIN de Acesso (4 dígitos)" class="p-2 rounded border" required pattern="\\d{4}" maxlength="4">
+                            <button type="submit" id="saveUserBtn" class="bg-green-600 text-white py-2 rounded md:col-span-3 hover:bg-green-700">Cadastrar Funcionário</button>
+                        </form>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-slate-500 min-w-[600px]">
+                            <thead class="text-xs text-slate-700 uppercase bg-slate-50 border-b">
+                                <tr>
+                                    <th class="px-6 py-3">Nome</th>
+                                    <th class="px-6 py-3">Função</th>
+                                    <th class="px-6 py-3">PIN</th>
+                                    <th class="px-6 py-3">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${appState.data.users.map(u => `
+                                    <tr class="bg-white border-b hover:bg-slate-50">
+                                        <td class="px-6 py-4 font-medium text-slate-900">${u.name}</td>
+                                        <td class="px-6 py-4"><span class="bg-slate-100 text-slate-800 text-xs font-medium px-2.5 py-0.5 rounded uppercase">${u.role}</span></td>
+                                        <td class="px-6 py-4 font-mono">****</td>
+                                        <td class="px-6 py-4 flex gap-2">
+                                            <button onclick="editUser(${u.id})" class="text-blue-600 hover:text-blue-900 px-2 py-1 rounded hover:bg-blue-50 transition-colors" title="Editar">
+                                                <i class="fa-solid fa-pen-to-square"></i>
+                                            </button>
+                                            <button onclick="appState.removeUser(${u.id})" class="text-red-600 hover:text-red-900 px-2 py-1 rounded hover:bg-red-50 transition-colors" title="Remover">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderPaymentsTab() {
+            const config = appState.data.paymentConfig;
+            return `
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+                    <div class="p-4 border-b border-slate-200 bg-slate-50">
+                        <h3 class="font-bold text-slate-700">Configuração de Recebimentos</h3>
+                        <p class="text-xs text-slate-500">Defina as chaves Pix e endereços de carteiras cripto.</p>
+                    </div>
+
+                    <form onsubmit="handlePaymentUpdate(event)" class="p-6 space-y-8">
+                        
+                        <!-- Seção Pix -->
+                        <div>
+                            <h4 class="font-bold text-sm text-teal-600 uppercase tracking-wider mb-4 border-b border-teal-100 pb-2">
+                                <i class="fa-brands fa-pix mr-1"></i> Pix & API Pix
+                            </h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Chave Pix Estática (Padrão)</label>
+                                    <input type="text" name="pixKey" value="${config.pixKey || ''}" class="w-full p-2 border border-slate-300 rounded font-mono text-sm" placeholder="Email, CPF ou Chave Aleatória">
+                                    <p class="text-xs text-slate-400 mt-1">Usada quando a API não estiver conectada.</p>
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Token de API Pix (Opcional)</label>
+                                    <input type="password" name="pixApiToken" value="${config.pixApiToken || ''}" class="w-full p-2 border border-slate-300 rounded font-mono text-sm" placeholder="Cole seu Token OAuth / API Key aqui">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Seção Cartões / Gateway -->
+                        <div>
+                            <h4 class="font-bold text-sm text-indigo-600 uppercase tracking-wider mb-4 border-b border-indigo-100 pb-2">
+                                <i class="fa-solid fa-credit-card mr-1"></i> Gateway de Cartão
+                            </h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Provedor</label>
+                                    <select name="gatewayProvider" class="w-full p-2 border border-slate-300 rounded text-sm bg-white">
+                                        <option value="mercadopago" ${config.gatewayProvider === 'mercadopago' ? 'selected' : ''}>Mercado Pago</option>
+                                        <option value="stripe" ${config.gatewayProvider === 'stripe' ? 'selected' : ''}>Stripe</option>
+                                        <option value="asaas" ${config.gatewayProvider === 'asaas' ? 'selected' : ''}>Asaas</option>
+                                        <option value="pagarme" ${config.gatewayProvider === 'pagarme' ? 'selected' : ''}>Pagar.me</option>
+                                    </select>
+                                </div>
+                                <div class="col-span-2 md:col-span-1"></div> <!-- Spacer -->
+
+                                <div class="col-span-2 md:col-span-1">
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Public Key / Chave Pública</label>
+                                    <input type="text" name="apiKeyPublic" value="${config.apiKeyPublic || ''}" class="w-full p-2 border border-slate-300 rounded font-mono text-sm" placeholder="pk_test_...">
+                                </div>
+                                <div class="col-span-2 md:col-span-1">
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Secret Key / Token Privado</label>
+                                    <input type="password" name="apiKeySecret" value="${config.apiKeySecret || ''}" class="w-full p-2 border border-slate-300 rounded font-mono text-sm" placeholder="sk_test_...">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Seção Cripto -->
+                        <div>
+                            <h4 class="font-bold text-sm text-slate-600 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
+                                <i class="fa-brands fa-bitcoin mr-1"></i> Carteiras Cripto
+                            </h4>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-500 mb-1">USDT (BEP-20)</label>
+                                    <input type="text" name="usdt_bep20" value="${config.usdt_bep20 || ''}" class="w-full p-2 border border-slate-300 rounded font-mono text-xs">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-500 mb-1">USDT (Polygon)</label>
+                                    <input type="text" name="usdt_poly" value="${config.usdt_poly || ''}" class="w-full p-2 border border-slate-300 rounded font-mono text-xs">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-500 mb-1">Bitcoin (BTC)</label>
+                                    <input type="text" name="btc" value="${config.btc || ''}" class="w-full p-2 border border-slate-300 rounded font-mono text-xs">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-500 mb-1">Ethereum (ETH)</label>
+                                    <input type="text" name="eth" value="${config.eth || ''}" class="w-full p-2 border border-slate-300 rounded font-mono text-xs">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-4 border-t border-slate-100 flex justify-end">
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/30">
+                                Salvar Configurações
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        }
+
+        // --- HANDLERS DO ADMIN ---
+
+        window.cancelOrder = (id) => {
+            if(confirm('ATENÇÃO: Deseja realmente estornar/cancelar este pedido? O valor será subtraído dos relatórios.')) {
+                appState.updateOrderStatus(id, 'cancelado');
+            }
+        };
+
+        window.previewImage = (input) => {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('imagePreview');
+                    preview.classList.remove('hidden');
+                    preview.querySelector('img').src = e.target.result;
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        };
+
+        // Função para abrir o modal de novo produto zerado
+        window.openNewProductForm = () => {
+            const formContainer = document.getElementById('addProductForm');
+            formContainer.classList.remove('hidden');
+            
+            const form = formContainer.querySelector('form');
+            form.reset();
+            form.id.value = ''; // Limpa ID para indicar criação
+            document.getElementById('imagePreview').classList.add('hidden');
+            
+            // Reseta botão para verde/Salvar
+            const btn = document.getElementById('saveBtn');
+            btn.innerText = "Salvar Produto";
+            btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            btn.classList.add('bg-green-600', 'hover:bg-green-700');
+        };
+
+        // Função para abrir o modal em modo de edição
+        window.editProduct = (id) => {
+            const product = appState.data.products.find(p => p.id === id);
+            if (!product) return;
+
+            const formContainer = document.getElementById('addProductForm');
+            formContainer.classList.remove('hidden');
+
+            const form = formContainer.querySelector('form');
+            form.id.value = product.id; // Define o ID para indicar edição
+            form.name.value = product.name;
+            form.price.value = product.price;
+            form.categoryId.value = product.categoryId;
+            form.description.value = product.description;
+            
+            // Lógica para imagem na edição
+            if (!product.image.startsWith('data:')) {
+                // Se for URL normal
+                form.querySelector('input[name="image"]').value = product.image;
+                document.getElementById('imagePreview').classList.add('hidden');
+            } else {
+                // Se for Base64 (upload anterior)
+                const preview = document.getElementById('imagePreview');
+                preview.classList.remove('hidden');
+                preview.querySelector('img').src = product.image;
+                form.querySelector('input[name="image"]').value = '';
+            }
+
+            // Muda botão para azul/Atualizar
+            const btn = document.getElementById('saveBtn');
+            btn.innerText = "Atualizar Produto";
+            btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+            btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            
+            // Scroll para o formulário
+            formContainer.scrollIntoView({ behavior: 'smooth' });
+        };
+
+        window.handleNewProduct = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const fileInput = document.getElementById('fileUpload');
+            const id = formData.get('id'); // Pega o ID oculto
+            
+            let imageUrl = formData.get('image'); 
+
+            // Se for edição e não houver nova imagem, precisamos manter a antiga
+            if (id && !imageUrl && (!fileInput.files || !fileInput.files[0])) {
+                const existingProduct = appState.data.products.find(p => p.id == id);
+                if (existingProduct) {
+                    imageUrl = existingProduct.image;
+                }
+            }
+
+            // Processa novo arquivo se houver
+            if (fileInput.files && fileInput.files[0]) {
+                imageUrl = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(fileInput.files[0]);
+                });
+            }
+
+            // Fallback final
+            if (!imageUrl) imageUrl = 'https://placehold.co/400?text=Sem+Imagem';
+
+            const productData = {
+                name: formData.get('name'),
+                price: parseFloat(formData.get('price')),
+                categoryId: formData.get('categoryId'),
+                image: imageUrl,
+                description: formData.get('description')
+            };
+
+            if (id) {
+                // Modo Edição
+                productData.id = parseInt(id);
+                appState.updateProduct(productData);
+                alert("Produto atualizado com sucesso!");
+            } else {
+                // Modo Criação
+                appState.addProduct(productData);
+                alert("Produto cadastrado com sucesso!");
+            }
+            
+            e.target.reset();
+            document.getElementById('imagePreview').classList.add('hidden');
+            document.getElementById('addProductForm').classList.add('hidden');
+        };
+
+        // --- HANDLERS DE USUÁRIO (NOVO) ---
+
+        window.openNewUserForm = () => {
+            const formContainer = document.getElementById('addUserForm');
+            formContainer.classList.remove('hidden');
+            
+            const form = formContainer.querySelector('form');
+            form.reset();
+            form.id.value = ''; // Limpa ID
+            
+            const btn = document.getElementById('saveUserBtn');
+            btn.innerText = "Cadastrar Funcionário";
+            btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            btn.classList.add('bg-green-600', 'hover:bg-green-700');
+        };
+
+        window.editUser = (id) => {
+            const user = appState.data.users.find(u => u.id === id);
+            if (!user) return;
+
+            const formContainer = document.getElementById('addUserForm');
+            formContainer.classList.remove('hidden');
+            
+            const form = formContainer.querySelector('form');
+            form.id.value = user.id;
+            form.name.value = user.name;
+            form.role.value = user.role;
+            form.pin.value = user.pin;
+
+            const btn = document.getElementById('saveUserBtn');
+            btn.innerText = "Atualizar Funcionário";
+            btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+            btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            
+            formContainer.scrollIntoView({ behavior: 'smooth' });
+        };
+
+        window.handleNewUser = (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const id = formData.get('id');
+            
+            const userData = {
+                name: formData.get('name'),
+                role: formData.get('role'),
+                pin: formData.get('pin')
+            };
+
+            if (id) {
+                userData.id = parseInt(id);
+                appState.updateUser(userData);
+                alert("Funcionário atualizado com sucesso!");
+            } else {
+                appState.addUser(userData);
+                alert("Funcionário cadastrado com sucesso!");
+            }
+            
+            e.target.reset();
+            document.getElementById('addUserForm').classList.add('hidden');
+        };
+
+        window.handlePaymentUpdate = (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const config = {
+                // Pix
+                pixKey: formData.get('pixKey'),
+                pixApiToken: formData.get('pixApiToken'),
+                
+                // Gateway Cartão
+                gatewayProvider: formData.get('gatewayProvider'),
+                apiKeyPublic: formData.get('apiKeyPublic'),
+                apiKeySecret: formData.get('apiKeySecret'),
+
+                // Cripto
+                usdt_bep20: formData.get('usdt_bep20'),
+                usdt_poly: formData.get('usdt_poly'),
+                btc: formData.get('btc'),
+                eth: formData.get('eth')
+            };
+            appState.updatePaymentConfig(config);
+        };
+
+        function checkAdminAccess() {
+            const pin = prompt("Insira o PIN de Administrador (9999):");
+            if(pin === '9999') {
+                appState.currentUser = { name: "Admin Temporário", role: "admin" }; 
+                appState.currentView = 'admin';
+                render();
+            } else {
+                alert("Acesso negado.");
+            }
+        }
+
+        // ==========================================
+        // 4. INICIALIZAÇÃO
+        // ==========================================
+        
+        render();
+
+    </script>
+</body>
+</html>
