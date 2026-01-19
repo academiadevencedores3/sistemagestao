@@ -15,7 +15,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        /* Correção para altura móvel e toque */
+        body { 
+            font-family: 'Inter', sans-serif; 
+            -webkit-tap-highlight-color: transparent; 
+            height: 100dvh; /* Dynamic Viewport Height */
+        }
         
         /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -43,7 +48,7 @@
             font-weight: 600;
         }
 
-        /* Esconder barra de rolagem em categorias mobile mas manter scroll */
+        /* Esconder barra de rolagem mas manter funcionalidade */
         .hide-scroll::-webkit-scrollbar { display: none; }
         .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
@@ -65,7 +70,7 @@
         }
     </script>
 </head>
-<body class="bg-slate-50 text-slate-800 h-screen overflow-hidden flex flex-col">
+<body class="bg-slate-50 text-slate-800 overflow-hidden flex flex-col">
 
     <!-- Container Principal da Aplicação -->
     <div id="app" class="flex-1 flex flex-col h-full overflow-hidden relative">
@@ -125,12 +130,11 @@
                 this.cart = [];
                 this.currentUser = null;
                 this.currentView = 'login';
-                // Estado para controle da UI Responsiva
                 this.isMobileCartOpen = false;
             }
 
             loadData() {
-                const stored = localStorage.getItem('gastroflow_db_v3_7'); // Versão atualizada para analytics
+                const stored = localStorage.getItem('gastroflow_db_v3_7');
                 if (stored) {
                     this.data = JSON.parse(stored);
                     if(!this.data.paymentConfig) this.data.paymentConfig = DEFAULT_DATA.paymentConfig;
@@ -163,7 +167,6 @@
                 render();
             }
 
-            // --- CARRINHO & PEDIDOS ---
             addToCart(product) {
                 const existing = this.cart.find(item => item.product.id === product.id);
                 if (existing) {
@@ -176,7 +179,6 @@
 
             removeFromCart(index) {
                 this.cart.splice(index, 1);
-                // Se esvaziar no mobile, pode fechar o modal, mas opcional
                 render();
             }
 
@@ -204,11 +206,8 @@
                 };
                 this.data.orders.push(newOrder);
                 this.saveData();
-                
-                // Limpeza do carrinho
                 this.cart = [];
-                this.isMobileCartOpen = false; // Fecha carrinho ao finalizar
-                
+                this.isMobileCartOpen = false;
                 return newOrder;
             }
 
@@ -217,11 +216,10 @@
                 if (order) {
                     order.status = newStatus;
                     this.saveData();
-                    render(); // Re-renderiza para atualizar gráficos/tabelas
+                    render();
                 }
             }
             
-            // --- ADMIN ---
             addProduct(product) {
                 product.id = Date.now();
                 this.data.products.push(product);
@@ -275,20 +273,16 @@
                 render();
             }
 
-            // --- ANALYTICS ---
             getAnalyticsData() {
-                const orders = this.data.orders.filter(o => o.status !== 'cancelado'); // Ignora cancelados nas contas
+                const orders = this.data.orders.filter(o => o.status !== 'cancelado');
                 const totalRevenue = orders.reduce((acc, o) => acc + o.total, 0);
                 
-                // Agrupamento por Pagamento
                 const paymentStats = {};
                 orders.forEach(o => {
-                    // Simplifica string de pagamento (remove "Troco...")
                     const method = o.paymentMethod.split(' ')[0].replace('_', ' ').toUpperCase(); 
                     paymentStats[method] = (paymentStats[method] || 0) + o.total;
                 });
 
-                // Agrupamento por Vendedor
                 const attendantStats = {};
                 orders.forEach(o => {
                     const att = o.attendant || 'Desconhecido';
@@ -297,7 +291,6 @@
                     attendantStats[att].total += o.total;
                 });
 
-                // Top Produtos
                 const productStats = {};
                 orders.forEach(o => {
                     o.items.forEach(item => {
@@ -307,7 +300,6 @@
                     });
                 });
 
-                // Ordenar Top Produtos
                 const topProducts = Object.entries(productStats)
                     .sort((a, b) => b[1] - a[1])
                     .slice(0, 5);
@@ -319,7 +311,7 @@
                     paymentStats,
                     attendantStats,
                     topProducts,
-                    allOrders: this.data.orders // Inclui cancelados para a lista histórica
+                    allOrders: this.data.orders
                 };
             }
         }
@@ -361,12 +353,10 @@
             const container = document.createElement('div');
             container.className = 'flex flex-col h-full bg-slate-100';
 
-            // Header com ajustes responsivos
             const header = document.createElement('header');
-            header.className = 'bg-white border-b border-slate-200 px-4 lg:px-6 py-3 flex justify-between items-center shadow-sm z-20';
+            header.className = 'bg-white border-b border-slate-200 px-4 lg:px-6 py-3 flex justify-between items-center shadow-sm z-20 flex-shrink-0';
             
             let navLinks = '';
-            // Links simplificados no mobile (apenas ícones ou texto curto)
             if (appState.currentUser.role === 'admin') {
                 navLinks = `
                     <div class="hidden md:flex gap-4">
@@ -422,7 +412,7 @@
 
             if (appState.currentUser.role !== 'cozinha') {
                 const footer = document.createElement('footer');
-                footer.className = 'bg-slate-800 text-slate-400 py-1 px-4 text-xs flex justify-between items-center z-20 hidden md:flex'; // Ocultar footer em mobile para ganhar espaço
+                footer.className = 'bg-slate-800 text-slate-400 py-1 px-4 text-xs flex justify-between items-center z-20 hidden md:flex flex-shrink-0'; 
                 footer.innerHTML = `
                     <span>&copy; 2026 GastroFlow - Mobile Ready</span>
                     <button onclick="checkAdminAccess()" class="hover:text-white transition-colors"><i class="fa-solid fa-lock"></i> Admin</button>
@@ -496,15 +486,15 @@
 
         function POSView() {
             const container = document.createElement('div');
-            container.className = 'flex flex-col lg:flex-row h-full relative overflow-hidden'; // Garante que não scrolle o body
+            container.className = 'flex flex-col lg:flex-row h-full relative overflow-hidden'; 
 
             // --- COLUNA ESQUERDA (PRODUTOS) ---
             const leftCol = document.createElement('div');
-            leftCol.className = 'flex-1 flex flex-col w-full h-full bg-slate-50 relative z-0';
+            leftCol.className = 'flex-1 flex flex-col w-full h-full bg-slate-50 relative z-0 min-w-0'; // min-w-0 evita flex overflow
 
-            // Menu Categorias (Scroll Horizontal)
+            // Menu Categorias (Ajustado com max-w-full)
             const catContainer = document.createElement('div');
-            catContainer.className = 'flex gap-2 p-3 overflow-x-auto whitespace-nowrap border-b border-slate-200 bg-white hide-scroll flex-shrink-0';
+            catContainer.className = 'flex gap-2 p-3 overflow-x-auto whitespace-nowrap border-b border-slate-200 bg-white hide-scroll flex-shrink-0 w-full max-w-[100vw]';
             
             const allBtn = `<button onclick="filterProducts('all')" class="cat-btn active px-4 py-2 rounded-full text-sm font-medium bg-slate-800 text-white transition-all shadow-md flex-shrink-0">Todos</button>`;
             const catBtns = appState.data.categories.map(c => 
@@ -514,19 +504,18 @@
             catContainer.innerHTML = allBtn + catBtns;
             leftCol.appendChild(catContainer);
 
-            // Grid de Produtos
+            // Grid de Produtos (Padding bottom aumentado para mobile)
             const productGrid = document.createElement('div');
             productGrid.id = 'productGrid';
-            // Grid responsivo: 2 colunas no celular, 3 no tablet, 4 no desktop
-            productGrid.className = 'flex-1 p-3 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pb-24 lg:pb-4 content-start';
+            // pb-32 garante que o FAB não cubra o último item
+            productGrid.className = 'flex-1 p-3 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pb-32 lg:pb-4 content-start w-full';
             leftCol.appendChild(productGrid);
 
             // --- COLUNA DIREITA (CARRINHO) ---
-            // Lógica: Em Desktop é fixo à direita. Em Mobile, é um overlay 'absolute' controlado por isMobileCartOpen
             const rightCol = document.createElement('div');
             const cartClasses = appState.isMobileCartOpen 
-                ? 'absolute inset-0 z-40 flex flex-col bg-slate-50 transition-transform duration-300 transform translate-y-0' // Mobile Aberto
-                : 'hidden lg:flex lg:w-96 lg:flex-col lg:bg-white lg:border-l lg:border-slate-200 lg:shadow-xl z-20'; // Desktop Fixo / Mobile Fechado
+                ? 'absolute inset-0 z-40 flex flex-col bg-slate-50 transition-transform duration-300 transform translate-y-0' 
+                : 'hidden lg:flex lg:w-96 lg:flex-col lg:bg-white lg:border-l lg:border-slate-200 lg:shadow-xl z-20';
 
             rightCol.className = cartClasses;
 
@@ -534,7 +523,6 @@
             rightCol.innerHTML = `
                 <div class="p-4 bg-white border-b border-slate-200 flex justify-between items-center shadow-sm flex-shrink-0">
                     <h2 class="font-bold text-lg text-slate-800"><i class="fa-solid fa-cart-shopping mr-2 text-primary"></i>Pedido</h2>
-                    <!-- Botão Fechar só no mobile -->
                     <button onclick="appState.toggleMobileCart()" class="lg:hidden w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500">
                         <i class="fa-solid fa-chevron-down"></i>
                     </button>
@@ -559,8 +547,6 @@
             container.appendChild(leftCol);
             container.appendChild(rightCol);
 
-            // --- BOTÃO FLUTUANTE (FAB) PARA MOBILE ---
-            // Só aparece se o carrinho tiver itens e estivermos no mobile
             const cartTotal = appState.cart.reduce((acc, item) => acc + (item.product.price * item.qty), 0);
             const cartCount = appState.cart.reduce((acc, item) => acc + item.qty, 0);
             
@@ -579,7 +565,6 @@
                         </div>
                     </button>
                 `;
-                // Se o carrinho mobile já estiver aberto, esconde o FAB
                 if (!appState.isMobileCartOpen) {
                     container.appendChild(fab);
                 }
@@ -698,9 +683,8 @@
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 fade-in';
             modal.id = 'checkoutModal';
             
-            // Modal agora é full width em baixo no mobile, e centralizado no desktop
             modal.innerHTML = `
-                <div class="bg-white w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] h-auto">
+                <div class="bg-white w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85dvh] h-auto">
                     <div class="p-4 bg-slate-800 text-white flex justify-between items-center flex-shrink-0">
                         <h3 class="font-bold text-lg">Finalizar Pedido</h3>
                         <button onclick="document.getElementById('checkoutModal').remove()" class="text-slate-400 hover:text-white p-2"><i class="fa-solid fa-xmark text-xl"></i></button>
@@ -867,13 +851,9 @@
 
                 const newOrder = appState.createOrder(orderData);
                 
-                // Removido render() aqui para evitar limpar o DOM antes de remover o modal
-                
-                // Remover modal explicitamente primeiro se ele existe
                 const modal = document.getElementById('checkoutModal');
                 if(modal) modal.remove();
                 
-                // Agora sim redirecionar e renderizar
                 appState.currentView = 'kitchen';
                 render();
 
@@ -1041,7 +1021,7 @@
             const container = document.createElement('div');
             container.className = 'p-4 lg:p-6 max-w-5xl mx-auto h-full flex flex-col';
             
-            let activeTab = 'reports'; // Mudado default para reports para demonstrar
+            let activeTab = 'reports'; 
 
             const renderContent = () => {
                 const contentArea = container.querySelector('#adminContent');
@@ -1049,7 +1029,7 @@
 
                 // Header Tabs Scrollable
                 container.querySelector('#tabHeader').innerHTML = `
-                    <div class="flex gap-4 lg:gap-6 border-b border-slate-200 mb-6 overflow-x-auto whitespace-nowrap hide-scroll">
+                    <div class="flex gap-4 lg:gap-6 border-b border-slate-200 mb-6 overflow-x-auto whitespace-nowrap hide-scroll w-full max-w-[100vw]">
                         <button onclick="switchTab('reports')" class="tab-btn pb-3 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors flex-shrink-0 ${activeTab === 'reports' ? 'active' : ''}">
                             <i class="fa-solid fa-chart-line mr-2"></i>Relatórios
                         </button>
@@ -1087,7 +1067,7 @@
                     <p class="text-sm text-slate-500">Gestão completa do sistema</p>
                 </div>
                 <div id="tabHeader"></div>
-                <div id="adminContent" class="flex-1 overflow-y-auto pb-10"></div>
+                <div id="adminContent" class="flex-1 overflow-y-auto pb-10 w-full"></div>
             `;
 
             setTimeout(renderContent, 0);
@@ -1097,13 +1077,11 @@
 
         // --- SUB-VIEWS DO ADMIN ---
 
-        // (NOVO) ABA RELATÓRIOS
         function renderReportsTab() {
             const data = appState.getAnalyticsData();
             const topSellerName = Object.entries(data.attendantStats).sort((a,b) => b[1].total - a[1].total)[0]?.[0] || '-';
             const topSellerValue = Object.entries(data.attendantStats).sort((a,b) => b[1].total - a[1].total)[0]?.[1].total || 0;
 
-            // Gera HTML para barras de pagamento
             const paymentBars = Object.entries(data.paymentStats).map(([method, total]) => {
                 const percent = (total / data.totalRevenue) * 100;
                 return `
@@ -1119,7 +1097,6 @@
                 `;
             }).join('') || '<p class="text-xs text-slate-400">Sem dados</p>';
 
-            // Gera HTML para Top Produtos
             const productBars = data.topProducts.map(([name, count]) => {
                 return `
                     <div class="flex justify-between items-center py-2 border-b border-slate-50 last:border-0">
@@ -1130,7 +1107,7 @@
             }).join('') || '<p class="text-xs text-slate-400">Sem dados</p>';
 
             return `
-                <div class="space-y-6 animate-fade-in">
+                <div class="space-y-6 animate-fade-in w-full">
                     
                     <!-- KPI Cards -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1166,11 +1143,11 @@
                     </div>
 
                     <!-- Tabela de Histórico -->
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden w-full">
                         <div class="p-4 border-b border-slate-200 bg-slate-50">
                             <h3 class="font-bold text-slate-700">Histórico de Transações</h3>
                         </div>
-                        <div class="overflow-x-auto">
+                        <div class="overflow-x-auto w-full">
                             <table class="w-full text-sm text-left text-slate-500 min-w-[700px]">
                                 <thead class="text-xs text-slate-700 uppercase bg-slate-50 border-b">
                                     <tr>
@@ -1218,7 +1195,7 @@
 
         function renderProductsTab() {
             return `
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8 w-full">
                     <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                         <h3 class="font-bold text-slate-700">Catálogo de Produtos</h3>
                         <button onclick="openNewProductForm()" class="bg-primary hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
@@ -1226,7 +1203,6 @@
                         </button>
                     </div>
 
-                    <!-- Formulário Novo/Editar Produto -->
                     <div id="addProductForm" class="hidden bg-slate-100 p-4 border-b border-slate-200 fade-in">
                         <form onsubmit="handleNewProduct(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <input type="hidden" name="id" id="productId">
@@ -1264,7 +1240,7 @@
                         </form>
                     </div>
 
-                    <div class="overflow-x-auto">
+                    <div class="overflow-x-auto w-full">
                         <table class="w-full text-sm text-left text-slate-500 min-w-[600px]">
                             <thead class="text-xs text-slate-700 uppercase bg-slate-50 border-b">
                                 <tr>
@@ -1305,7 +1281,7 @@
 
         function renderUsersTab() {
             return `
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8 w-full">
                     <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                         <h3 class="font-bold text-slate-700">Equipe e Acessos</h3>
                         <button onclick="openNewUserForm()" class="bg-primary hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
@@ -1327,7 +1303,7 @@
                         </form>
                     </div>
 
-                    <div class="overflow-x-auto">
+                    <div class="overflow-x-auto w-full">
                         <table class="w-full text-sm text-left text-slate-500 min-w-[600px]">
                             <thead class="text-xs text-slate-700 uppercase bg-slate-50 border-b">
                                 <tr>
@@ -1363,7 +1339,7 @@
         function renderPaymentsTab() {
             const config = appState.data.paymentConfig;
             return `
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8 w-full">
                     <div class="p-4 border-b border-slate-200 bg-slate-50">
                         <h3 class="font-bold text-slate-700">Configuração de Recebimentos</h3>
                         <p class="text-xs text-slate-500">Defina as chaves Pix e endereços de carteiras cripto.</p>
@@ -1473,24 +1449,21 @@
             }
         };
 
-        // Função para abrir o modal de novo produto zerado
         window.openNewProductForm = () => {
             const formContainer = document.getElementById('addProductForm');
             formContainer.classList.remove('hidden');
             
             const form = formContainer.querySelector('form');
             form.reset();
-            form.id.value = ''; // Limpa ID para indicar criação
+            form.id.value = ''; 
             document.getElementById('imagePreview').classList.add('hidden');
             
-            // Reseta botão para verde/Salvar
             const btn = document.getElementById('saveBtn');
             btn.innerText = "Salvar Produto";
             btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
             btn.classList.add('bg-green-600', 'hover:bg-green-700');
         };
 
-        // Função para abrir o modal em modo de edição
         window.editProduct = (id) => {
             const product = appState.data.products.find(p => p.id === id);
             if (!product) return;
@@ -1499,32 +1472,27 @@
             formContainer.classList.remove('hidden');
 
             const form = formContainer.querySelector('form');
-            form.id.value = product.id; // Define o ID para indicar edição
+            form.id.value = product.id; 
             form.name.value = product.name;
             form.price.value = product.price;
             form.categoryId.value = product.categoryId;
             form.description.value = product.description;
             
-            // Lógica para imagem na edição
             if (!product.image.startsWith('data:')) {
-                // Se for URL normal
                 form.querySelector('input[name="image"]').value = product.image;
                 document.getElementById('imagePreview').classList.add('hidden');
             } else {
-                // Se for Base64 (upload anterior)
                 const preview = document.getElementById('imagePreview');
                 preview.classList.remove('hidden');
                 preview.querySelector('img').src = product.image;
                 form.querySelector('input[name="image"]').value = '';
             }
 
-            // Muda botão para azul/Atualizar
             const btn = document.getElementById('saveBtn');
             btn.innerText = "Atualizar Produto";
             btn.classList.remove('bg-green-600', 'hover:bg-green-700');
             btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
             
-            // Scroll para o formulário
             formContainer.scrollIntoView({ behavior: 'smooth' });
         };
 
@@ -1532,11 +1500,10 @@
             e.preventDefault();
             const formData = new FormData(e.target);
             const fileInput = document.getElementById('fileUpload');
-            const id = formData.get('id'); // Pega o ID oculto
+            const id = formData.get('id'); 
             
             let imageUrl = formData.get('image'); 
 
-            // Se for edição e não houver nova imagem, precisamos manter a antiga
             if (id && !imageUrl && (!fileInput.files || !fileInput.files[0])) {
                 const existingProduct = appState.data.products.find(p => p.id == id);
                 if (existingProduct) {
@@ -1544,7 +1511,6 @@
                 }
             }
 
-            // Processa novo arquivo se houver
             if (fileInput.files && fileInput.files[0]) {
                 imageUrl = await new Promise((resolve) => {
                     const reader = new FileReader();
@@ -1553,7 +1519,6 @@
                 });
             }
 
-            // Fallback final
             if (!imageUrl) imageUrl = 'https://placehold.co/400?text=Sem+Imagem';
 
             const productData = {
@@ -1565,14 +1530,12 @@
             };
 
             if (id) {
-                // Modo Edição
                 productData.id = parseInt(id);
                 appState.updateProduct(productData);
-                alert("Produto atualizado com sucesso!");
+                alert("Produto atualizado!");
             } else {
-                // Modo Criação
                 appState.addProduct(productData);
-                alert("Produto cadastrado com sucesso!");
+                alert("Produto cadastrado!");
             }
             
             e.target.reset();
@@ -1580,15 +1543,13 @@
             document.getElementById('addProductForm').classList.add('hidden');
         };
 
-        // --- HANDLERS DE USUÁRIO (NOVO) ---
-
         window.openNewUserForm = () => {
             const formContainer = document.getElementById('addUserForm');
             formContainer.classList.remove('hidden');
             
             const form = formContainer.querySelector('form');
             form.reset();
-            form.id.value = ''; // Limpa ID
+            form.id.value = ''; 
             
             const btn = document.getElementById('saveUserBtn');
             btn.innerText = "Cadastrar Funcionário";
@@ -1631,10 +1592,10 @@
             if (id) {
                 userData.id = parseInt(id);
                 appState.updateUser(userData);
-                alert("Funcionário atualizado com sucesso!");
+                alert("Funcionário atualizado!");
             } else {
                 appState.addUser(userData);
-                alert("Funcionário cadastrado com sucesso!");
+                alert("Funcionário cadastrado!");
             }
             
             e.target.reset();
