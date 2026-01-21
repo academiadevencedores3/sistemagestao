@@ -134,7 +134,8 @@
             }
 
             loadData() {
-                const stored = localStorage.getItem('gastroflow_db_v3_7');
+                // Atualizado para v3_10 para garantir correção de layout
+                const stored = localStorage.getItem('gastroflow_db_v3_10');
                 if (stored) {
                     this.data = JSON.parse(stored);
                     if(!this.data.paymentConfig) this.data.paymentConfig = DEFAULT_DATA.paymentConfig;
@@ -145,7 +146,7 @@
             }
 
             saveData() {
-                localStorage.setItem('gastroflow_db_v3_7', JSON.stringify(this.data));
+                localStorage.setItem('gastroflow_db_v3_10', JSON.stringify(this.data));
             }
 
             login(userId, pin) {
@@ -589,6 +590,7 @@
             return container;
         }
 
+        // --- Render Product Grid (CORRIGIDO E ROBUSTO) ---
         function renderProductGrid(container, catId) {
             container.innerHTML = '';
             const products = catId === 'all' 
@@ -597,22 +599,30 @@
 
             products.forEach(p => {
                 const card = document.createElement('div');
-                card.className = 'bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden active:scale-95 transition-all cursor-pointer group flex flex-col h-full'; 
+                // Removemos h-full para não forçar esticamento, usamos flex-col para empilhar
+                card.className = 'bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden cursor-pointer flex flex-col group'; 
                 card.onclick = () => appState.addToCart(p);
                 
+                // Estrutura robusta:
+                // 1. Imagem com altura fixa (h-32 mobile / h-40 desktop)
+                // 2. Preço com z-index garantido
+                // 3. Conteúdo de texto simples sem flex-1 forçado que possa colapsar
+                
                 card.innerHTML = `
-                    <div class="aspect-[4/3] bg-slate-200 relative overflow-hidden flex-shrink-0">
+                    <div class="relative w-full h-32 sm:h-40 bg-slate-200 flex-shrink-0">
                         <img src="${p.image}" 
-                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                             class="w-full h-full object-cover" 
                              alt="${p.name}" 
                              onerror="this.src='https://placehold.co/400x300/e2e8f0/64748b?text=Sem+Imagem'">
-                        <div class="absolute bottom-2 right-2 bg-white/95 px-2 py-1 rounded-md text-xs font-bold shadow-sm backdrop-blur-sm">
+                        
+                        <div class="absolute bottom-2 right-2 bg-white/95 px-2 py-1 rounded-md text-xs font-bold shadow-sm text-slate-900 border border-slate-100 z-10">
                             ${formatCurrency(p.price)}
                         </div>
                     </div>
-                    <div class="p-2.5 flex-1 flex flex-col">
-                        <h3 class="font-bold text-slate-800 text-xs sm:text-sm leading-tight mb-1 line-clamp-2">${p.name}</h3>
-                        <p class="text-[10px] text-slate-500 line-clamp-2 mt-auto">${p.description}</p>
+                    
+                    <div class="p-3 flex flex-col gap-1">
+                        <h3 class="font-bold text-slate-800 text-sm leading-tight line-clamp-2">${p.name}</h3>
+                        <p class="text-xs text-slate-500 line-clamp-2 leading-relaxed">${p.description}</p>
                     </div>
                 `;
                 container.appendChild(card);
@@ -683,6 +693,7 @@
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 fade-in';
             modal.id = 'checkoutModal';
             
+            // Modal agora é full width em baixo no mobile, e centralizado no desktop
             modal.innerHTML = `
                 <div class="bg-white w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85dvh] h-auto">
                     <div class="p-4 bg-slate-800 text-white flex justify-between items-center flex-shrink-0">
