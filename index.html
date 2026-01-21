@@ -134,8 +134,8 @@
             }
 
             loadData() {
-                // Atualizado para v3_10 para garantir correção de layout
-                const stored = localStorage.getItem('gastroflow_db_v3_10');
+                // v3_11 para atualizar layout dos cards
+                const stored = localStorage.getItem('gastroflow_db_v3_11');
                 if (stored) {
                     this.data = JSON.parse(stored);
                     if(!this.data.paymentConfig) this.data.paymentConfig = DEFAULT_DATA.paymentConfig;
@@ -146,7 +146,7 @@
             }
 
             saveData() {
-                localStorage.setItem('gastroflow_db_v3_10', JSON.stringify(this.data));
+                localStorage.setItem('gastroflow_db_v3_11', JSON.stringify(this.data));
             }
 
             login(userId, pin) {
@@ -491,7 +491,7 @@
 
             // --- COLUNA ESQUERDA (PRODUTOS) ---
             const leftCol = document.createElement('div');
-            leftCol.className = 'flex-1 flex flex-col w-full h-full bg-slate-50 relative z-0 min-w-0'; // min-w-0 evita flex overflow
+            leftCol.className = 'flex-1 flex flex-col w-full h-full bg-slate-50 relative z-0 min-w-0';
 
             // Menu Categorias (Ajustado com max-w-full)
             const catContainer = document.createElement('div');
@@ -505,10 +505,10 @@
             catContainer.innerHTML = allBtn + catBtns;
             leftCol.appendChild(catContainer);
 
-            // Grid de Produtos (Padding bottom aumentado para mobile)
+            // Grid de Produtos
             const productGrid = document.createElement('div');
             productGrid.id = 'productGrid';
-            // pb-32 garante que o FAB não cubra o último item
+            // Grid responsivo e com padding extra no fundo
             productGrid.className = 'flex-1 p-3 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pb-32 lg:pb-4 content-start w-full';
             leftCol.appendChild(productGrid);
 
@@ -590,7 +590,7 @@
             return container;
         }
 
-        // --- Render Product Grid (CORRIGIDO E ROBUSTO) ---
+        // --- Render Product Grid (CORRIGIDO PARA VISIBILIDADE DE TEXTO) ---
         function renderProductGrid(container, catId) {
             container.innerHTML = '';
             const products = catId === 'all' 
@@ -599,17 +599,12 @@
 
             products.forEach(p => {
                 const card = document.createElement('div');
-                // Removemos h-full para não forçar esticamento, usamos flex-col para empilhar
-                card.className = 'bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden cursor-pointer flex flex-col group'; 
+                // H-AUTO e FLEX-COL permitem que o card cresça com o texto
+                card.className = 'bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden cursor-pointer flex flex-col h-auto group'; 
                 card.onclick = () => appState.addToCart(p);
                 
-                // Estrutura robusta:
-                // 1. Imagem com altura fixa (h-32 mobile / h-40 desktop)
-                // 2. Preço com z-index garantido
-                // 3. Conteúdo de texto simples sem flex-1 forçado que possa colapsar
-                
                 card.innerHTML = `
-                    <div class="relative w-full h-32 sm:h-40 bg-slate-200 flex-shrink-0">
+                    <div class="relative w-full h-32 md:h-40 bg-slate-200 flex-shrink-0">
                         <img src="${p.image}" 
                              class="w-full h-full object-cover" 
                              alt="${p.name}" 
@@ -620,9 +615,10 @@
                         </div>
                     </div>
                     
-                    <div class="p-3 flex flex-col gap-1">
-                        <h3 class="font-bold text-slate-800 text-sm leading-tight line-clamp-2">${p.name}</h3>
-                        <p class="text-xs text-slate-500 line-clamp-2 leading-relaxed">${p.description}</p>
+                    <!-- Container de texto com espaço garantido -->
+                    <div class="p-3 flex flex-col gap-1 min-h-[80px]">
+                        <h3 class="font-bold text-slate-800 text-sm leading-tight mb-2">${p.name}</h3>
+                        <p class="text-xs text-slate-500 leading-relaxed">${p.description}</p>
                     </div>
                 `;
                 container.appendChild(card);
@@ -1214,8 +1210,10 @@
                         </button>
                     </div>
 
+                    <!-- Formulário Novo/Editar Produto (ATUALIZADO COM UPLOAD & EDITAR) -->
                     <div id="addProductForm" class="hidden bg-slate-100 p-4 border-b border-slate-200 fade-in">
                         <form onsubmit="handleNewProduct(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Campo oculto para ID (edição) -->
                             <input type="hidden" name="id" id="productId">
                             
                             <input type="text" name="name" placeholder="Nome do Produto" class="p-2 rounded border" required>
@@ -1240,7 +1238,7 @@
                                     <div id="imagePreview" class="mt-2 hidden">
                                         <div class="flex items-center gap-2 bg-green-50 p-2 rounded border border-green-200">
                                             <img src="" class="h-8 w-8 object-cover rounded">
-                                            <span class="text-xs text-green-700 font-medium">Imagem pronta!</span>
+                                            <span class="text-xs text-green-700 font-medium">Imagem selecionada!</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1300,9 +1298,12 @@
                         </button>
                     </div>
 
+                    <!-- Formulário Novo Usuário -->
                     <div id="addUserForm" class="hidden bg-slate-100 p-4 border-b border-slate-200 fade-in">
                         <form onsubmit="handleNewUser(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <!-- Campo oculto para ID -->
                             <input type="hidden" name="id" id="userId">
+                            
                             <input type="text" name="name" placeholder="Nome do Funcionário" class="p-2 rounded border" required>
                             <select name="role" class="p-2 rounded border">
                                 <option value="atendente">Atendente</option>
@@ -1442,12 +1443,6 @@
 
         // --- HANDLERS DO ADMIN ---
 
-        window.cancelOrder = (id) => {
-            if(confirm('ATENÇÃO: Deseja realmente estornar/cancelar este pedido? O valor será subtraído dos relatórios.')) {
-                appState.updateOrderStatus(id, 'cancelado');
-            }
-        };
-
         window.previewImage = (input) => {
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
@@ -1460,21 +1455,24 @@
             }
         };
 
+        // Função para abrir o modal de novo produto zerado
         window.openNewProductForm = () => {
             const formContainer = document.getElementById('addProductForm');
             formContainer.classList.remove('hidden');
             
             const form = formContainer.querySelector('form');
             form.reset();
-            form.id.value = ''; 
+            form.id.value = ''; // Limpa ID para indicar criação
             document.getElementById('imagePreview').classList.add('hidden');
             
+            // Reseta botão para verde/Salvar
             const btn = document.getElementById('saveBtn');
             btn.innerText = "Salvar Produto";
             btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
             btn.classList.add('bg-green-600', 'hover:bg-green-700');
         };
 
+        // Função para abrir o modal em modo de edição
         window.editProduct = (id) => {
             const product = appState.data.products.find(p => p.id === id);
             if (!product) return;
@@ -1483,27 +1481,32 @@
             formContainer.classList.remove('hidden');
 
             const form = formContainer.querySelector('form');
-            form.id.value = product.id; 
+            form.id.value = product.id; // Define o ID para indicar edição
             form.name.value = product.name;
             form.price.value = product.price;
             form.categoryId.value = product.categoryId;
             form.description.value = product.description;
             
+            // Lógica para imagem na edição
             if (!product.image.startsWith('data:')) {
+                // Se for URL normal
                 form.querySelector('input[name="image"]').value = product.image;
                 document.getElementById('imagePreview').classList.add('hidden');
             } else {
+                // Se for Base64 (upload anterior)
                 const preview = document.getElementById('imagePreview');
                 preview.classList.remove('hidden');
                 preview.querySelector('img').src = product.image;
                 form.querySelector('input[name="image"]').value = '';
             }
 
+            // Muda botão para azul/Atualizar
             const btn = document.getElementById('saveBtn');
             btn.innerText = "Atualizar Produto";
             btn.classList.remove('bg-green-600', 'hover:bg-green-700');
             btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
             
+            // Scroll para o formulário
             formContainer.scrollIntoView({ behavior: 'smooth' });
         };
 
@@ -1511,10 +1514,11 @@
             e.preventDefault();
             const formData = new FormData(e.target);
             const fileInput = document.getElementById('fileUpload');
-            const id = formData.get('id'); 
+            const id = formData.get('id'); // Pega o ID oculto
             
             let imageUrl = formData.get('image'); 
 
+            // Se for edição e não houver nova imagem, precisamos manter a antiga
             if (id && !imageUrl && (!fileInput.files || !fileInput.files[0])) {
                 const existingProduct = appState.data.products.find(p => p.id == id);
                 if (existingProduct) {
@@ -1522,6 +1526,7 @@
                 }
             }
 
+            // Processa novo arquivo se houver
             if (fileInput.files && fileInput.files[0]) {
                 imageUrl = await new Promise((resolve) => {
                     const reader = new FileReader();
@@ -1530,6 +1535,7 @@
                 });
             }
 
+            // Fallback final
             if (!imageUrl) imageUrl = 'https://placehold.co/400?text=Sem+Imagem';
 
             const productData = {
@@ -1541,12 +1547,14 @@
             };
 
             if (id) {
+                // Modo Edição
                 productData.id = parseInt(id);
                 appState.updateProduct(productData);
-                alert("Produto atualizado!");
+                alert("Produto atualizado com sucesso!");
             } else {
+                // Modo Criação
                 appState.addProduct(productData);
-                alert("Produto cadastrado!");
+                alert("Produto cadastrado com sucesso!");
             }
             
             e.target.reset();
@@ -1554,13 +1562,15 @@
             document.getElementById('addProductForm').classList.add('hidden');
         };
 
+        // --- HANDLERS DE USUÁRIO (NOVO) ---
+
         window.openNewUserForm = () => {
             const formContainer = document.getElementById('addUserForm');
             formContainer.classList.remove('hidden');
             
             const form = formContainer.querySelector('form');
             form.reset();
-            form.id.value = ''; 
+            form.id.value = ''; // Limpa ID
             
             const btn = document.getElementById('saveUserBtn');
             btn.innerText = "Cadastrar Funcionário";
@@ -1603,10 +1613,10 @@
             if (id) {
                 userData.id = parseInt(id);
                 appState.updateUser(userData);
-                alert("Funcionário atualizado!");
+                alert("Funcionário atualizado com sucesso!");
             } else {
                 appState.addUser(userData);
-                alert("Funcionário cadastrado!");
+                alert("Funcionário cadastrado com sucesso!");
             }
             
             e.target.reset();
